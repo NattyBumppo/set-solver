@@ -13,7 +13,7 @@ def not_near_any_saved_centers(cX, cY, saved_centers):
 
     return True
 
-def get_contours_within_card(img, idx, approximate_card_area, mean_color):
+def get_contours_within_card(img, idx, approximate_card_area):
 
     card_img = img.copy()
     contour_img = img.copy()
@@ -91,9 +91,9 @@ def get_contours_within_card(img, idx, approximate_card_area, mean_color):
     else:
         return []
 
-def get_card_contours(img):
+def get_card_contours(img, flood_fill_size):
     # Resize image for faster processing
-    resized = imutils.resize(img, width=1000)
+    resized = imutils.resize(img, width=800)
     resized_width = resized.shape[1]
     resized_height = resized.shape[0]
     resize_ratio = img.shape[0] / float(resized.shape[0])
@@ -113,7 +113,7 @@ def get_card_contours(img):
     # h, w = flood.shape[:2]
     # mask = np.zeros((h+2, w+2), np.uint8)
 
-    cv2.floodFill(flood, None, (0, 0), 0, 1, 1)
+    cv2.floodFill(flood, None, (0, 0), 0, flood_fill_size, flood_fill_size)
 
     thresh = cv2.threshold(flood, 100, 255, cv2.THRESH_BINARY)[1]
 
@@ -162,12 +162,12 @@ def get_dist(pt0, pt1):
 
     return np.sqrt((pt0[0] - pt1[0]) * (pt0[0] - pt1[0]) + (pt0[1] - pt1[1]) * (pt0[1] - pt1[1]))
 
-def debug_draw_card_types(img, contours, card_colors, card_shapes, card_fills, card_counts):
+def debug_draw_card_types(img, contours, card_colors, card_shapes, card_shadings, card_counts):
 
     debug_img = img.copy()
 
     for i, cnt in enumerate(contours):
-        cv2.drawContours(debug_img, [cnt], -1, (0, 255, 0), 2)
+        cv2.drawContours(debug_img, [cnt], -1, (0, 127, 0), 2)
 
         bounding_box = cv2.minAreaRect(cnt)
         bb_center, bb_size, angle = bounding_box
@@ -175,7 +175,7 @@ def debug_draw_card_types(img, contours, card_colors, card_shapes, card_fills, c
         font = cv2.FONT_HERSHEY_SIMPLEX
         bb_center_int = tuple([int(bb_center[0]), int(bb_center[1])])
         # bb_corner = tuple([bb_center_int[0] - int(bb_size[0]/2.0), bb_center_int[1] + int(bb_size[1]/2.0)])
-        card_text = str(i) + ' ' + card_colors[i] + ' ' + card_shapes[i] + ' ' + card_fills[i] + ' ' + str(card_counts[i])
+        card_text = str(i) + ' ' + card_colors[i] + ' ' + card_shapes[i] + ' ' + card_shadings[i] + ' ' + str(card_counts[i])
         cv2.putText(debug_img, card_text, bb_center_int, font, 0.3, (0, 0, 0), 1, cv2.LINE_AA)
 
     cv2.imwrite('out/debug.png', debug_img)
@@ -212,15 +212,18 @@ def get_card_color(masked_image, contour, long_line):
                 # print(color[0])
                 # print(color[1])
                 # print(color[2])
-                sum_intensity = float(color[0]) + float(color[1]) + float(color[2])
+                intensity_range = max(color) - min(color)
+                # print(intensity_range)
+
+                # sum_intensity = float(color[0]) + float(color[1]) + float(color[2])
                 # print(sum_intensity)
 
-                avg_intensity = sum_intensity / 3.0
+                # avg_intensity = sum_intensity / 3.0
                 # print(avg_intensity)
 
                 # print(type(avg_intensity))
                 # Check for some deviation from the average color
-                if abs(color[0] - avg_intensity) > 10 or abs(color[1] - avg_intensity) > 10 or abs(color[2] - avg_intensity) > 10:
+                if intensity_range > 20:
                     b_acc += color[0]
                     g_acc += color[1]
                     r_acc += color[2]
@@ -268,6 +271,29 @@ def get_card_color(masked_image, contour, long_line):
     # bb_corner = tuple([bb_center_int[0] - int(bb_size[0]/2.0), bb_center_int[1] + int(bb_size[1]/2.0)])
     # cv2.putText(resized_box, str(i) + ' ' + set_color, bb_center_int, font, 0.3, (0, 0, 0), 1, cv2.LINE_AA)
 
+def get_sample_contours():
+
+    contours_to_return = []
+
+    for filename in ['squiggle.jpg', 'oval.jpg', 'diamond.jpg']:
+        img = cv2.imread(filename, 0)
+        ret, thresh = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY_INV)
+        thresh_debug_filename = 'out/' + os.path.splitext(filename)[0] + '_thresh_debug.jpg'
+        cv2.imwrite(thresh_debug_filename, thresh)
+        cnts = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        cnt = cnts[0]
+
+        contours_to_return.append(cnt)
+        
+        # Debug
+        contour_img = img.copy()
+        debug_filename = 'out/' + os.path.splitext(filename)[0] + '_debug.jpg'
+        cv2.drawContours(contour_img, [cnt], -1, (0, 255, 0), 2)
+        cv2.imwrite(debug_filename, contour_img)
+
+    return contours_to_return
+
 
 def get_card_types(test_image, contours):
     # Resize image for faster processing
@@ -280,8 +306,10 @@ def get_card_types(test_image, contours):
 
     card_colors = ['U'] * len(contours)
     card_shapes = ['U'] * len(contours)
-    card_fills = ['U'] * len(contours)
+    card_shadings = ['U'] * len(contours)
     card_counts = [0] * len(contours)
+
+    # squiggle_contour, oval_contour, diamond_contour = get_sample_contours()
 
     for i, c in enumerate(contours):
         print('index ' + str(i))
@@ -350,14 +378,201 @@ def get_card_types(test_image, contours):
 
         card_colors[i], mean_color_cv = get_card_color(resized_masked, c_resized, long_line)
 
-        card_contours = get_contours_within_card(resized_masked, i, bb_size[0] * bb_size[1], mean_color_cv)
+        inner_card_contours = get_contours_within_card(resized_masked, i, bb_size[0] * bb_size[1])
 
-        card_counts[i] = len(card_contours)
-        
+        card_counts[i] = len(inner_card_contours)
+
+        card_shadings[i] = get_card_shading(inner_card_contours, resized_masked, i, mean_color_cv, short_line, bb_center)
+
+        card_shapes[i] = get_shape_from_contours(inner_card_contours, i)
 
     cv2.imwrite('out/boxes.png', resized_box)
 
-    return card_colors, card_shapes, card_fills, card_counts
+    return card_colors, card_shapes, card_shadings, card_counts
+
+def get_shape_from_contours(inner_card_contours, idx):
+    if len(inner_card_contours) == 0:
+        print('Error: no inner card contours for idx %s' % idx)
+        return 'U'
+
+    # Use first contour (they should all be similar anyway)
+    cnt = inner_card_contours[0]
+
+    # # The lowest score is the best
+    # s_match_score = cv2.matchShapes(cnt, squiggle_contour, 1, 0.0)
+    # o_match_score = cv2.matchShapes(cnt, oval_contour, 1, 0.0)
+    # d_match_score = cv2.matchShapes(cnt, diamond_contour, 1, 0.0)
+
+    # scores = [s_match_score, o_match_score, d_match_score]
+
+    # if min(scores) == s_match_score:
+    #     return 'S'
+    # elif min(scores) == o_match_score:
+    #     return 'O'
+    # else:
+    #     return 'D'
+
+    # return '(%.3f %.3f %.3f)' % (s_match_score, o_match_score, d_match_score)
+
+    area = cv2.contourArea(cnt)
+    hull = cv2.convexHull(cnt)
+    hull_area = cv2.contourArea(hull)
+    solidity = float(area)/hull_area
+
+    if solidity < 0.93:
+        # Squigglies have lower solidity
+        # due to not matching their convex hulls well
+        return 'S'
+
+    M = cv2.moments(inner_card_contours[0])
+    cX = int((M["m10"] / M["m00"]))
+    cY = int((M["m01"] / M["m00"]))
+    center = (cX, cY)
+
+    bounding_box = cv2.minAreaRect(cnt)
+    bb_center, bb_size, angle = bounding_box
+
+    # dists = []
+    # for cnt_point in cnt:
+    #     cnt_point = tuple(cnt_point.flatten())
+    #     dist = get_dist(cnt_point, center)
+    #     dists.append(dist)
+    #     print(dist)
+
+    # avg_dist = np.mean(dists)
+
+    # return '%.3f' % (avg_dist / area)
+    # return '%.3f' % len(cnt)
+
+
+
+    x,y,w,h = cv2.boundingRect(cnt)
+    rect_area = w*h
+    extent = float(area)/rect_area
+
+   
+    # Ovals cover more of their bounding rectangle
+    # if extent > 0.7:
+    #     # Oval
+    #     return 'O'
+    # else:
+    #     # Diamond
+    #     return 'D'
+
+    (x,y), (MA, ma), angle = cv2.fitEllipse(cnt)
+
+    area_for_diamond = (MA * ma) / 2.0
+    diff_from_diamond_area = abs(area - area_for_diamond)
+
+    # if hu_moments[1] < 0.1
+
+    return '%.2f' % (diff_from_diamond_area / area_for_diamond)
+
+
+
+def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, vertical_line_through_center_of_card, center_of_card):
+    if len(inner_card_contours) == 0:
+        print('Error: no inner card contours for idx %s' % idx)
+        return 'U'
+
+    print('Average color: ' + str(mean_color_cv))
+    # Go through one of the contours vertically, looking for color changes
+    M = cv2.moments(inner_card_contours[0])
+    cX = int((M["m10"] / M["m00"]))
+    cY = int((M["m01"] / M["m00"]))
+
+    card_center_to_first_point = (vertical_line_through_center_of_card[0][0] - center_of_card[0], vertical_line_through_center_of_card[0][1] - center_of_card[1])
+    card_center_to_second_point = (vertical_line_through_center_of_card[1][0] - center_of_card[0], vertical_line_through_center_of_card[1][1] - center_of_card[1])
+
+    first_line_point_through_contour_center = (int(cX + card_center_to_first_point[0]), int(cY + card_center_to_first_point[1]))
+    second_line_point_through_contour_center = (int(cX + card_center_to_second_point[0]), int(cY + card_center_to_second_point[1]))
+
+    line_img = resized_masked.copy()
+ 
+
+    cv2.line(line_img, first_line_point_through_contour_center, second_line_point_through_contour_center, (0, 0, 255)) # Red
+
+    cv2.imwrite('out/line_through_contour' + str(idx) + '.png', line_img)
+
+    gray = cv2.cvtColor(resized_masked, cv2.COLOR_BGR2GRAY)
+    line_points, colors = createLineIterator(first_line_point_through_contour_center, second_line_point_through_contour_center, gray)
+
+    line_length = get_dist(first_line_point_through_contour_center, second_line_point_through_contour_center)
+
+    point_img = resized_masked.copy()
+    
+    continguous_colored_pixel_groups = []
+    continguous_colored_pixels_seen_recently = 0
+
+    # Go through all of the colors on the vertical midline
+    used_colors = []
+    white_intensity = 0
+    for color_idx, color in enumerate(colors):
+        coords = tuple(line_points[color_idx])
+
+        # Only consider the point if it's actually inside the contour itself
+        # (this will prevent literal "edge cases")
+        pixels_within_contour_required = line_length * 0.02
+
+        # Sample outside of the contour in order to find the white intensity for the card
+        pixels_outside_of_contour_for_white_sample = line_length * 0.1
+
+        if cv2.pointPolygonTest(inner_card_contours[0], coords, True) < -pixels_outside_of_contour_for_white_sample:
+            white_intensity = max([color, white_intensity])
+            # print('white intensity of %s' % white_intensity)
+
+        if cv2.pointPolygonTest(inner_card_contours[0], coords, True) > pixels_within_contour_required:
+            used_colors.append(color)
+            if color > white_intensity - 30:
+                
+                cv2.circle(point_img, coords, 1, (255, 255, 255)) # white is white
+                # print('white')
+                # print(str(color) + ': white')
+                # Log any non-white pixel strings we saw
+                if continguous_colored_pixels_seen_recently > 0:
+                    continguous_colored_pixel_groups.append(continguous_colored_pixels_seen_recently)
+                    continguous_colored_pixels_seen_recently = 0
+            # Little to no deviation from the average color indicates whiteness
+            else:
+                # print(str(color) + ': non-white')
+                continguous_colored_pixels_seen_recently += 1
+                cv2.circle(point_img, coords, 1, (0, 0, 255)) # color is red
+
+    # Finally, collect any accumulated pixels
+    if continguous_colored_pixels_seen_recently > 0:
+        continguous_colored_pixel_groups.append(continguous_colored_pixels_seen_recently)
+        continguous_colored_pixels_seen_recently = 0
+
+    range_val = max(used_colors) - min(used_colors)
+    mean_val = np.mean(used_colors)
+    print('Range: %s' % range_val)
+    print('Mean: %s' % mean_val)       
+
+    cv2.imwrite('out/line_through_contour_as_points' + str(idx) + '.png', point_img)
+
+    print(continguous_colored_pixel_groups)
+
+    if len(continguous_colored_pixel_groups) > 0 and max(continguous_colored_pixel_groups) > line_length * 0.5:
+        if mean_val < 150:
+            # filled shading
+            shading = 'F'
+        else:
+            # striped shading
+            shading = 'S'
+    elif 0 <= len(continguous_colored_pixel_groups) <= 2:
+        # empty shading
+        shading = 'E'
+    elif len(continguous_colored_pixel_groups) > 4:
+        # striped shading
+        shading = 'S'
+    else:
+        # unknown shading
+        shading = 'U'
+
+    print('Got shading of ' + shading)
+
+    return shading
+
 
 def rgb_color_to_set_color(r, g, b):
     # Scale color magnitudes first
@@ -385,15 +600,30 @@ def rgb_color_to_set_color(r, g, b):
         return 'U'
 
 def main():
-    test_image_fn = 'test3.jpg'
+    test_image_fn = 'test.jpg'
 
     test_image = cv2.imread(test_image_fn)
 
-    contours = get_card_contours(test_image.copy())
+    contour_sets = []
 
-    card_colors, card_shapes, card_fills, card_counts = get_card_types(test_image, contours)
+    flood_fill_size = 1
 
-    debug_draw_card_types(test_image, contours, card_colors, card_shapes, card_fills, card_counts)
+    while flood_fill_size < 5:
+        contours = get_card_contours(test_image.copy(), flood_fill_size)
+        print('Got %s contours with ffs of %s' % (len(contours), flood_fill_size))
+        contour_sets.append(contours)
+        flood_fill_size += 1
+
+    # Use max-length contour set
+    contours = max(contour_sets, key=lambda c: len(c))
+
+    if len(contours) <= 2 or len(contours) >= 16:
+        print('Bad number of contours found')
+        return
+
+    card_colors, card_shapes, card_shadings, card_counts = get_card_types(test_image, contours)
+
+    debug_draw_card_types(test_image, contours, card_colors, card_shapes, card_shadings, card_counts)
 
 
 if __name__ == '__main__':
