@@ -163,7 +163,7 @@ def get_dist(pt0, pt1):
 
     return np.sqrt((pt0[0] - pt1[0]) * (pt0[0] - pt1[0]) + (pt0[1] - pt1[1]) * (pt0[1] - pt1[1]))
 
-def debug_draw_card_types(img, contours, card_colors, card_shapes, card_shadings, card_counts):
+def get_debug_image(img, contours, card_colors, card_shapes, card_shadings, card_counts):
 
     debug_img = img.copy()
 
@@ -180,6 +180,8 @@ def debug_draw_card_types(img, contours, card_colors, card_shapes, card_shadings
         cv2.putText(debug_img, card_text, bb_center_int, font, 0.3, (0, 0, 0), 1, cv2.LINE_AA)
 
     cv2.imwrite('out/debug.png', debug_img)
+
+    return debug_img
 
 def get_card_color(masked_image, contour, long_line):
     b_acc = 0.0
@@ -479,8 +481,6 @@ def get_shape_from_contours(inner_card_contours, idx):
 
     return '%.2f' % (diff_from_diamond_area / area_for_diamond)
 
-
-
 def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, vertical_line_through_center_of_card, center_of_card):
     if len(inner_card_contours) == 0:
         print('Error: no inner card contours for idx %s' % idx)
@@ -634,8 +634,59 @@ def find_sets(card_colors, card_shapes, card_shadings, card_counts):
 
     return sets
 
+def get_set_image(test_image, sets, contours, unknown_card_list):
+    
+    set_image = test_image.copy()
+
+    colors = [ \
+        # coral green
+        (144, 255, 0), \
+        # orange
+        (0, 106, 255), \
+        # light blue
+        (255, 255, 0), \
+        # yellow
+        (0, 216, 255), \
+        # purple
+        (255, 0, 178)
+        ]
+
+    # First, draw contours so known cards are shown as tracked
+    for i, cnt in enumerate(contours):
+        if i not in unknown_card_list:
+            cv2.drawContours(set_image, [cnt], -1, (100, 100, 100), 1)
+
+    # Draw sets
+    for i, set in enumerate(sets):
+        for card_color, card_shape, card_shading, card_count, idx in set:
+            # Draw card contour in color, with an offset thickness to allow
+            # multiple sets to be seen
+            color_idx = i % len(colors)
+
+            outline_color = colors[color_idx]
+
+            thickness = 2 + i
+
+            cnt = contours[idx]
+
+            cv2.drawContours(set_image, [cnt], -1, outline_color, thickness)
+
+    cv2.imwrite('out/set_image.png', set_image)
+
+    return set_image
+
+def get_unknown_card_list(card_colors, card_shapes, card_shadings, card_counts):
+    unknown_card_list = []
+
+    for i, (card_color, card_shape, card_shading, card_count) in enumerate(zip(card_colors, card_shapes, card_shadings, card_counts)):
+        if card_color == 'U' or card_shape == 'card_shape' or card_shading == 'U' or card_count == 0:
+            unknown_card_list.append(i)
+
+    return unknown_card_list
+
+
 def main():
-    test_image_fn = 'test4.jpg'
+    test_image_fn = 'test7.jpg'
 
     test_image = cv2.imread(test_image_fn)
 
@@ -658,9 +709,13 @@ def main():
 
     card_colors, card_shapes, card_shadings, card_counts = get_card_types(test_image, contours)
 
-    debug_draw_card_types(test_image, contours, card_colors, card_shapes, card_shadings, card_counts)
+    unknown_card_list = get_unknown_card_list(card_colors, card_shapes, card_shadings, card_counts)
+
+    debug_image = get_debug_image(test_image, contours, card_colors, card_shapes, card_shadings, card_counts)
 
     sets = find_sets(card_colors, card_shapes, card_shadings, card_counts)
+
+    set_image = get_set_image(test_image, sets, contours, unknown_card_list)
 
     print('Found %s sets' % len(sets))
     print(sets)
