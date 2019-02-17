@@ -81,10 +81,10 @@ def get_contours_within_card(img, idx, approximate_card_area):
         #     continue
 
         # cv2.drawContours(contour_img, [cnt], -1, (0, 255, 0), 2)
-    print('Contours? %s' % len(contours_to_keep))
+    # print('Contours? %s' % len(contours_to_keep))
 
-    cv2.imwrite('out/thresh_inner_contours' + str(idx) + '.png', card_img)
-    cv2.imwrite('out/inner_contours' + str(idx) + '.png', contour_img)
+    # cv2.imwrite('out/thresh_inner_contours' + str(idx) + '.png', card_img)
+    # cv2.imwrite('out/inner_contours' + str(idx) + '.png', contour_img)
 
     # Don't allow more than three shapes
     if len(contours_to_keep) <= 3:
@@ -98,6 +98,9 @@ def get_card_contours(img, flood_fill_size):
     resized_width = resized.shape[1]
     resized_height = resized.shape[0]
     resize_ratio = img.shape[0] / float(resized.shape[0])
+
+    # # Adjust contrast
+    # resized = adjust_contrast(resized)
 
     # convert the resized image to grayscale, blur it slightly,
     # flood fill to ignore corner color background, and threshold it
@@ -118,10 +121,10 @@ def get_card_contours(img, flood_fill_size):
 
     thresh = cv2.threshold(flood, 100, 255, cv2.THRESH_BINARY)[1]
 
-    cv2.imwrite('out/gray.png', gray)
-    cv2.imwrite('out/blurred.png', blurred)
-    cv2.imwrite('out/flood.png', flood)
-    cv2.imwrite('out/thresh.png', thresh)
+    # cv2.imwrite('out/gray.png', gray)
+    # cv2.imwrite('out/blurred.png', blurred)
+    # cv2.imwrite('out/flood.png', flood)
+    # cv2.imwrite('out/thresh.png', thresh)
 
     # find contours in the thresholded image
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -154,7 +157,7 @@ def get_card_contours(img, flood_fill_size):
      
         cv2.drawContours(img, [c_orig], -1, (0, 255, 0), 2)
 
-    cv2.imwrite('out/contours.png', img)
+    # cv2.imwrite('out/contours.png', img)
     
     return valid_orig_contours
 
@@ -177,7 +180,7 @@ def get_debug_image(img, contours, card_colors, card_shapes, card_shadings, card
         bb_center_int = tuple([int(bb_center[0]), int(bb_center[1])])
         # bb_corner = tuple([bb_center_int[0] - int(bb_size[0]/2.0), bb_center_int[1] + int(bb_size[1]/2.0)])
         card_text = '(' + str(i) + ') ' + card_colors[i] + ' ' + card_shapes[i] + ' ' + card_shadings[i] + ' ' + str(card_counts[i])
-        cv2.putText(debug_img, card_text, bb_center_int, font, 0.3, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(debug_img, card_text, bb_center_int, font, 0.4, (144, 255, 0), 1, cv2.LINE_AA)
 
     cv2.imwrite('out/debug.png', debug_img)
 
@@ -195,8 +198,8 @@ def get_card_color(masked_image, contour, long_line):
     # print(colors)
 
     # Use midpoint line for color average
-    continguous_non_white_pixel_groups = []
-    continguous_non_white_pixels_seen_recently = 0
+    contiguous_non_white_pixel_groups = []
+    contiguous_non_white_pixels_seen_recently = 0
 
     # Go through all of the colors on the horizontal midline
     for color_idx, color in enumerate(colors):
@@ -231,24 +234,24 @@ def get_card_color(masked_image, contour, long_line):
                     g_acc += color[1]
                     r_acc += color[2]
                     point_count += 1
-                    continguous_non_white_pixels_seen_recently += 1
+                    contiguous_non_white_pixels_seen_recently += 1
                     # print('color')
                 # Little to no deviation from the average color indicates whiteness
                 # else:
                 #     print('WHITE')
 
                     # Log any non-white pixel strings we saw
-                    if continguous_non_white_pixels_seen_recently > 0:
-                        continguous_non_white_pixel_groups.append(continguous_non_white_pixels_seen_recently)
-                        continguous_non_white_pixels_seen_recently = 0
+                    if contiguous_non_white_pixels_seen_recently > 0:
+                        contiguous_non_white_pixel_groups.append(contiguous_non_white_pixels_seen_recently)
+                        contiguous_non_white_pixels_seen_recently = 0
 
         # else:
             # print('Point (%s, %s) not in contour' % (coords[0], coords[1]))
             # print()
 
-    continguous_non_white_pixel_groups_as_percentage_of_horizontal = [g / len(line_points) for g in continguous_non_white_pixel_groups]
+    contiguous_non_white_pixel_groups_as_percentage_of_horizontal = [g / len(line_points) for g in contiguous_non_white_pixel_groups]
 
-    # print(continguous_non_white_pixel_groups_as_percentage_of_horizontal)
+    # print(contiguous_non_white_pixel_groups_as_percentage_of_horizontal)
 
     # b, g, r, _ = (cv2.mean(resized_masked))
     # Avoid divide-by-zero
@@ -315,7 +318,7 @@ def get_card_types(test_image, contours):
     # squiggle_contour, oval_contour, diamond_contour = get_sample_contours()
 
     for i, c in enumerate(contours):
-        print('index ' + str(i))
+        # print('index ' + str(i))
 
         # Get resized contours
         c_resized = c.astype("float")
@@ -377,7 +380,9 @@ def get_card_types(test_image, contours):
         # Mask out card
         resized_masked = resized * mask
 
-        cv2.imwrite('out/resized_masked_' + str(i) + '.png', resized_masked)
+        # cv2.imwrite('out/resized_masked_' + str(i) + '.png', resized_masked)
+
+        print(i)
 
         card_colors[i], mean_color_cv = get_card_color(resized_masked, c_resized, long_line)
 
@@ -389,13 +394,13 @@ def get_card_types(test_image, contours):
 
         card_shapes[i] = get_shape_from_contours(inner_card_contours, i)
 
-    cv2.imwrite('out/boxes.png', resized_box)
+    # cv2.imwrite('out/boxes.png', resized_box)
 
     return card_colors, card_shapes, card_shadings, card_counts
 
 def get_shape_from_contours(inner_card_contours, idx):
     if len(inner_card_contours) == 0:
-        print('Error: no inner card contours for idx %s' % idx)
+        # print('Error: no inner card contours for idx %s' % idx)
         return 'U'
 
     # Use first contour (they should all be similar anyway)
@@ -470,8 +475,6 @@ def get_shape_from_contours(inner_card_contours, idx):
         # Diamond
         return 'D'
     
-   
-
     (x,y), (MA, ma), angle = cv2.fitEllipse(cnt)
 
     area_for_diamond = (MA * ma) / 2.0
@@ -483,10 +486,10 @@ def get_shape_from_contours(inner_card_contours, idx):
 
 def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, vertical_line_through_center_of_card, center_of_card):
     if len(inner_card_contours) == 0:
-        print('Error: no inner card contours for idx %s' % idx)
+        # print('Error: no inner card contours for idx %s' % idx)
         return 'U'
 
-    print('Average color: ' + str(mean_color_cv))
+    # print('Average color: ' + str(mean_color_cv))
     # Go through one of the contours vertically, looking for color changes
     M = cv2.moments(inner_card_contours[0])
     cX = int((M["m10"] / M["m00"]))
@@ -503,7 +506,7 @@ def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, ve
 
     cv2.line(line_img, first_line_point_through_contour_center, second_line_point_through_contour_center, (0, 0, 255)) # Red
 
-    cv2.imwrite('out/line_through_contour' + str(idx) + '.png', line_img)
+    # cv2.imwrite('out/line_through_contour' + str(idx) + '.png', line_img)
 
     gray = cv2.cvtColor(resized_masked, cv2.COLOR_BGR2GRAY)
     line_points, colors = createLineIterator(first_line_point_through_contour_center, second_line_point_through_contour_center, gray)
@@ -512,8 +515,8 @@ def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, ve
 
     point_img = resized_masked.copy()
     
-    continguous_colored_pixel_groups = []
-    continguous_colored_pixels_seen_recently = 0
+    contiguous_colored_pixel_groups = []
+    contiguous_colored_pixels_seen_recently = 0
 
     # Go through all of the colors on the vertical midline
     used_colors = []
@@ -534,63 +537,85 @@ def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, ve
 
         if cv2.pointPolygonTest(inner_card_contours[0], coords, True) > pixels_within_contour_required:
             used_colors.append(color)
-            if color > white_intensity - 30:
+            if color > white_intensity - 25:
                 
                 cv2.circle(point_img, coords, 1, (255, 255, 255)) # white is white
                 # print('white')
                 # print(str(color) + ': white')
                 # Log any non-white pixel strings we saw
-                if continguous_colored_pixels_seen_recently > 0:
-                    continguous_colored_pixel_groups.append(continguous_colored_pixels_seen_recently)
-                    continguous_colored_pixels_seen_recently = 0
+                if contiguous_colored_pixels_seen_recently > 0:
+                    contiguous_colored_pixel_groups.append(contiguous_colored_pixels_seen_recently)
+                    contiguous_colored_pixels_seen_recently = 0
             # Little to no deviation from the average color indicates whiteness
             else:
                 # print(str(color) + ': non-white')
-                continguous_colored_pixels_seen_recently += 1
+                contiguous_colored_pixels_seen_recently += 1
                 cv2.circle(point_img, coords, 1, (0, 0, 255)) # color is red
 
     # Finally, collect any accumulated pixels
-    if continguous_colored_pixels_seen_recently > 0:
-        continguous_colored_pixel_groups.append(continguous_colored_pixels_seen_recently)
-        continguous_colored_pixels_seen_recently = 0
+    if contiguous_colored_pixels_seen_recently > 0:
+        contiguous_colored_pixel_groups.append(contiguous_colored_pixels_seen_recently)
+        contiguous_colored_pixels_seen_recently = 0
+
+    if len(used_colors) == 0:
+        # Error occurred
+        return 'U'
 
     range_val = max(used_colors) - min(used_colors)
     mean_val = np.mean(used_colors)
     # print('Range: %s' % range_val)
     # print('Mean: %s' % mean_val)
 
-    cv2.imwrite('out/line_through_contour_as_points' + str(idx) + '.png', point_img)
+    # cv2.imwrite('out/line_through_contour_as_points' + str(idx) + '.png', point_img)
 
-    # print(continguous_colored_pixel_groups)
+    # print(contiguous_colored_pixel_groups)
 
-    if len(continguous_colored_pixel_groups) > 0 and max(continguous_colored_pixel_groups) > line_length * 0.5:
+    if len(contiguous_colored_pixel_groups) > 0 and max(contiguous_colored_pixel_groups) > line_length * 0.5:
         if mean_val < 150:
             # filled shading
             shading = 'F'
         else:
             # striped shading
             shading = 'S'
-    elif 0 <= len(continguous_colored_pixel_groups) <= 2:
+    elif 0 <= len(contiguous_colored_pixel_groups) <= 2:
         # empty shading
         shading = 'E'
-    elif len(continguous_colored_pixel_groups) >= 4:
+    elif len(contiguous_colored_pixel_groups) >= 4:
         # striped shading
         shading = 'S'
     else:
         # unknown shading
         shading = 'U'
 
-    print('Got shading of ' + shading)
+    # print('Got shading of ' + shading)
 
     return shading
 
+def adjust_contrast(img):
+    #-----Converting image to LAB Color model----------------------------------- 
+    lab= cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+
+    #-----Splitting the LAB image to different channels-------------------------
+    l, a, b = cv2.split(lab)
+
+    #-----Applying CLAHE to L-channel-------------------------------------------
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    cl = clahe.apply(l)
+
+    #-----Merge the CLAHE enhanced L-channel with the a and b channel-----------
+    limg = cv2.merge((cl,a,b))
+
+    #-----Converting image from LAB Color model to RGB model--------------------
+    final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+
+    return final
 
 def rgb_color_to_set_color(r, g, b):
     # Scale color magnitudes first
     mag = np.sqrt(r * r + g * g + b * b)
-    r /= mag
-    g /= mag
-    b /= mag
+    r_norm = r / mag
+    g_norm = g / mag
+    b_norm = b / mag
 
     # print(mag)
     # print('r: %s' % r)
@@ -599,22 +624,51 @@ def rgb_color_to_set_color(r, g, b):
 
     color_as_str = '(%.2f, %.2f, %.2f)' % (r, g, b)
 
+    # # purple
+    # r = 114
+    # g = 45
+    # b = 99
+
+    # # red
+    # r = 201
+    # g = 20
+    # b = 24
+
     # return color_as_str
 
-    if g > r and g > b:
-        return 'G' # green
-    elif r > g and r > b:
-        return 'R' # red
-    elif b > r and b > g:
-        return 'P' # purple
-    else:
-        return 'U'
+    # red [[[ 11  43 217]]]
+    # 
+
+    pixel = np.uint8([[[b,g,r]]])
+    hsv = cv2.cvtColor(pixel, cv2.COLOR_BGR2HSV)
+    hsv = list(hsv.flatten())
+
+    print('hsv: %s' % hsv)
+    print('rgb: (%s, %s, %s), norms: (%s, %s, %s)' % (r, g, b, r_norm, g_norm, b_norm))
+
+
+    if hsv[0] < 50:
+        return 'R'
+    elif hsv[0] < 90:
+        return 'G'
+    elif hsv[0] < 150:
+        return 'P'
+    else:    
+        if g_norm > r_norm and g_norm > b_norm:
+            return 'G' # green
+        elif r > g * 1.1 and r > b * 1.1:
+            return 'R' # red
+        elif b_norm > g_norm:
+            return 'P' # purple
+        else:
+            
+            return 'U'
 
 def is_set(a, b, c):
-    return ((a[0] is not b[0] and b[0] is not c[0] and c[0] is not a[0]) and \
-        (a[1] is not b[1] and b[1] is not c[1] and c[1] is not a[1]) and \
-        (a[2] is not b[2] and b[2] is not c[2] and c[2] is not a[2]) and \
-        (a[3] is not b[3] and b[3] is not c[3] and c[3] is not a[3]))
+    return (((a[0] is not b[0] and b[0] is not c[0] and c[0] is not a[0]) or (a[0] is b[0] and b[0] is c[0] and c[0] is a[0])) and \
+        ((a[1] is not b[1] and b[1] is not c[1] and c[1] is not a[1]) or (a[1] is b[1] and b[1] is c[1] and c[1] is a[1])) and \
+        ((a[2] is not b[2] and b[2] is not c[2] and c[2] is not a[2]) or (a[2] is b[2] and b[2] is c[2] and c[2] is a[2])) and \
+        ((a[3] is not b[3] and b[3] is not c[3] and c[3] is not a[3]) or (a[3] is b[3] and b[3] is c[3] and c[3] is a[3])))
 
 def find_sets(card_colors, card_shapes, card_shadings, card_counts):
     
@@ -643,13 +697,25 @@ def get_set_image(test_image, sets, contours, unknown_card_list):
         (144, 255, 0), \
         # orange
         (0, 106, 255), \
-        # light blue
-        (255, 255, 0), \
+        # dark green
+        (0, 95, 0), \
         # yellow
         (0, 216, 255), \
         # purple
-        (255, 0, 178)
+        (255, 0, 178), \
+        # red
+        (0, 0, 255), \
+        # navy blue
+        (95, 0, 0), \
+        # magenta
+        (215, 0, 215)
         ]
+
+    set_accumulators_for_cards = [0] * len(contours)
+
+    for i, set in enumerate(sets):
+        for card_color, card_shape, card_shading, card_count, idx in set:
+            set_accumulators_for_cards[idx] += 1
 
     # First, draw contours so known cards are shown as tracked
     for i, cnt in enumerate(contours):
@@ -665,7 +731,14 @@ def get_set_image(test_image, sets, contours, unknown_card_list):
 
             outline_color = colors[color_idx]
 
-            thickness = 2 + i
+            min_thickness = 3
+            # max_thickness = 10
+
+            thickness = min_thickness + (set_accumulators_for_cards[idx]-1)*10
+            set_accumulators_for_cards[idx] -= 1
+
+            print('Drawing %s contour for %s with thickness %s' % (outline_color, idx, thickness))
+
 
             cnt = contours[idx]
 
@@ -684,19 +757,129 @@ def get_unknown_card_list(card_colors, card_shapes, card_shadings, card_counts):
 
     return unknown_card_list
 
+def process_using_camera(mirror=False):
+    cam = cv2.VideoCapture(0)
 
-def main():
-    test_image_fn = 'test7.jpg'
+    while True:
+        ret_val, img = cam.read()
+        if mirror: 
+            img = cv2.flip(img, 1)
+
+        set_image, debug_image, card_count = process_image_for_set_data(img)
+
+        if card_count == -1:
+            # Show basic camera view (no sets to show)
+            cv2.imshow('Set View', img)
+            cv2.imshow('Debug View', img)
+        else:
+            # Show set view
+            cv2.imshow('Set View', set_image)
+            cv2.imshow('Debug View', debug_image)
+
+        if cv2.waitKey(33) == 27: 
+            break  # esc to quit
+        if cv2.waitKey(33) == ord('s'): 
+            # take screenshot
+            cv2.imwrite('screenshot.png', img)
+    cv2.destroyAllWindows()
+
+
+def process_using_test_image():
+    test_image_fn = 'test2.jpg'
 
     test_image = cv2.imread(test_image_fn)
 
+    process_image_for_set_data(test_image)
+
+
+def contour_sanity_check(contours):
+    sane_contours = []
+
+    for i, cnt in enumerate(contours):
+        print('--')
+        area = cv2.contourArea(cnt)
+        hull = cv2.convexHull(cnt)
+        hull_area = cv2.contourArea(hull)
+        solidity = float(area)/hull_area
+
+
+        print('%s solidity: %s' % (i, solidity))
+        if solidity < 0.80:
+            continue
+
+
+    # M = cv2.moments(inner_card_contours[0])
+    # cX = int((M["m10"] / M["m00"]))
+    # cY = int((M["m01"] / M["m00"]))
+    # center = (cX, cY)
+
+        bounding_box = cv2.minAreaRect(cnt)
+        bb_center, bb_size, angle = bounding_box
+
+        if bb_size[0] > bb_size[1]:
+            long_side = bb_size[0]
+            short_side = bb_size[1]
+        else:
+            long_side = bb_size[1]
+            short_side = bb_size[0]
+
+        side_ratio = bb_size[0] / bb_size[1]
+
+        print('%s side_ratio: %s' % (i, side_ratio))
+
+        # if side_ratio < 1.5 or side_ratio > 2.5:
+            # continue
+
+        min_bounding_box_area = bb_size[0] * bb_size[1]
+
+        area_ratio = area / min_bounding_box_area
+
+        print('%s area_ratio: %s' % (i, area_ratio))
+
+        if area_ratio < 0.60:
+            continue
+
+        
+
+    # if side 
+
+    # dists = []
+    # for cnt_point in cnt:
+    #     cnt_point = tuple(cnt_point.flatten())
+    #     dist = get_dist(cnt_point, center)
+    #     dists.append(dist)
+    #     print(dist)
+
+    # avg_dist = np.mean(dists)
+
+    # return '%.3f' % (avg_dist / area)
+    # return '%.3f' % len(cnt)
+
+
+
+    # x,y,w,h = cv2.boundingRect(cnt)
+    # rect_area = w*h
+    # extent = float(area)/rect_area
+
+    # cv2.line(resized_box, pts_list[0], pts_list[1], (0, 0, 255)) # Red
+    # cv2.line(resized_box, pts_list[1], pts_list[2], (255, 0, 0)) # Blue
+    # cv2.line(resized_box, pts_list[2], pts_list[3], (0, 255, 0)) # Green
+    # cv2.line(resized_box, pts_list[3], pts_list[0], (0, 255, 255)) # Yellow
+
+    # area_ratio = area / min_bounding_box_area
+        sane_contours.append(cnt)
+
+    return sane_contours
+
+
+def process_image_for_set_data(test_image):
     contour_sets = []
 
     flood_fill_size = 1
 
     while flood_fill_size < 5:
         contours = get_card_contours(test_image.copy(), flood_fill_size)
-        print('Got %s contours with ffs of %s' % (len(contours), flood_fill_size))
+        # print('Got %s contours with ffs of %s' % (len(contours), flood_fill_size))
         contour_sets.append(contours)
         flood_fill_size += 1
 
@@ -705,7 +888,13 @@ def main():
 
     if len(contours) <= 2 or len(contours) >= 16:
         print('Bad number of contours found')
-        return
+        return None, None, -1
+
+    contours = contour_sanity_check(contours)
+
+    # Sort contours by area (so that they don't
+    # jump around on the screen when visualized)
+    contours.sort(key=lambda cnt: cv2.moments(cnt)['m00'], reverse=True)
 
     card_colors, card_shapes, card_shadings, card_counts = get_card_types(test_image, contours)
 
@@ -719,6 +908,19 @@ def main():
 
     print('Found %s sets' % len(sets))
     print(sets)
+
+    return set_image, debug_image, len(contours)
+
+
+def main():
+    test_mode = True
+
+    if test_mode:
+        process_using_test_image()
+    else:
+        process_using_camera()
+
+    
 
 if __name__ == '__main__':
     main()
