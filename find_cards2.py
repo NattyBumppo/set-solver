@@ -611,10 +611,10 @@ def rgb_color_to_set_color(r, g, b):
         return 'U'
 
 def is_set(a, b, c):
-    return ((a[0] != b[0] and b[0] != c[0]) and \
-        (a[1] != b[1] and b[1] != c[1]) and \
-        (a[2] != b[2] and b[2] != c[2]) and \
-        (a[3] != b[3] and b[3] != c[3]))
+    return ((a[0] is not b[0] and b[0] is not c[0] and c[0] is not a[0]) and \
+        (a[1] is not b[1] and b[1] is not c[1] and c[1] is not a[1]) and \
+        (a[2] is not b[2] and b[2] is not c[2] and c[2] is not a[2]) and \
+        (a[3] is not b[3] and b[3] is not c[3] and c[3] is not a[3]))
 
 def find_sets(card_colors, card_shapes, card_shadings, card_counts):
     
