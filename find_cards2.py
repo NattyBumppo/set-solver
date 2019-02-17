@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import imutils
+import itertools
 from line_iterator import createLineIterator
 
 def not_near_any_saved_centers(cX, cY, saved_centers):
@@ -175,7 +176,7 @@ def debug_draw_card_types(img, contours, card_colors, card_shapes, card_shadings
         font = cv2.FONT_HERSHEY_SIMPLEX
         bb_center_int = tuple([int(bb_center[0]), int(bb_center[1])])
         # bb_corner = tuple([bb_center_int[0] - int(bb_size[0]/2.0), bb_center_int[1] + int(bb_size[1]/2.0)])
-        card_text = str(i) + ' ' + card_colors[i] + ' ' + card_shapes[i] + ' ' + card_shadings[i] + ' ' + str(card_counts[i])
+        card_text = '(' + str(i) + ') ' + card_colors[i] + ' ' + card_shapes[i] + ' ' + card_shadings[i] + ' ' + str(card_counts[i])
         cv2.putText(debug_img, card_text, bb_center_int, font, 0.3, (0, 0, 0), 1, cv2.LINE_AA)
 
     cv2.imwrite('out/debug.png', debug_img)
@@ -432,6 +433,8 @@ def get_shape_from_contours(inner_card_contours, idx):
     bounding_box = cv2.minAreaRect(cnt)
     bb_center, bb_size, angle = bounding_box
 
+    min_bounding_box_area = bb_size[0] * bb_size[1]
+
     # dists = []
     # for cnt_point in cnt:
     #     cnt_point = tuple(cnt_point.flatten())
@@ -450,14 +453,22 @@ def get_shape_from_contours(inner_card_contours, idx):
     rect_area = w*h
     extent = float(area)/rect_area
 
+    # cv2.line(resized_box, pts_list[0], pts_list[1], (0, 0, 255)) # Red
+    # cv2.line(resized_box, pts_list[1], pts_list[2], (255, 0, 0)) # Blue
+    # cv2.line(resized_box, pts_list[2], pts_list[3], (0, 255, 0)) # Green
+    # cv2.line(resized_box, pts_list[3], pts_list[0], (0, 255, 255)) # Yellow
+
+    area_ratio = area / min_bounding_box_area
+
+    # Ovals cover more of their minimum bounding rectangle
+    if area_ratio > 0.7:
+        # Oval
+        return 'O'
+    else:
+        # Diamond
+        return 'D'
+    
    
-    # Ovals cover more of their bounding rectangle
-    # if extent > 0.7:
-    #     # Oval
-    #     return 'O'
-    # else:
-    #     # Diamond
-    #     return 'D'
 
     (x,y), (MA, ma), angle = cv2.fitEllipse(cnt)
 
@@ -545,12 +556,12 @@ def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, ve
 
     range_val = max(used_colors) - min(used_colors)
     mean_val = np.mean(used_colors)
-    print('Range: %s' % range_val)
-    print('Mean: %s' % mean_val)       
+    # print('Range: %s' % range_val)
+    # print('Mean: %s' % mean_val)
 
     cv2.imwrite('out/line_through_contour_as_points' + str(idx) + '.png', point_img)
 
-    print(continguous_colored_pixel_groups)
+    # print(continguous_colored_pixel_groups)
 
     if len(continguous_colored_pixel_groups) > 0 and max(continguous_colored_pixel_groups) > line_length * 0.5:
         if mean_val < 150:
@@ -562,7 +573,7 @@ def get_card_shading(inner_card_contours, resized_masked, idx, mean_color_cv, ve
     elif 0 <= len(continguous_colored_pixel_groups) <= 2:
         # empty shading
         shading = 'E'
-    elif len(continguous_colored_pixel_groups) > 4:
+    elif len(continguous_colored_pixel_groups) >= 4:
         # striped shading
         shading = 'S'
     else:
@@ -599,8 +610,32 @@ def rgb_color_to_set_color(r, g, b):
     else:
         return 'U'
 
+def is_set(a, b, c):
+    return ((a[0] != b[0] and b[0] != c[0]) and \
+        (a[1] != b[1] and b[1] != c[1]) and \
+        (a[2] != b[2] and b[2] != c[2]) and \
+        (a[3] != b[3] and b[3] != c[3]))
+
+def find_sets(card_colors, card_shapes, card_shadings, card_counts):
+    
+    indices = list(range(len(card_colors)))
+
+    # Zip together cards on the table
+    cards = []
+
+    for card in zip(card_colors, card_shapes, card_shadings, card_counts, indices):
+        cards.append(card)
+
+    sets = []
+
+    for combination in itertools.combinations(cards, 3):
+        if is_set(combination[0], combination[1], combination[2]):
+            sets.append(combination)
+
+    return sets
+
 def main():
-    test_image_fn = 'test.jpg'
+    test_image_fn = 'test4.jpg'
 
     test_image = cv2.imread(test_image_fn)
 
@@ -625,6 +660,10 @@ def main():
 
     debug_draw_card_types(test_image, contours, card_colors, card_shapes, card_shadings, card_counts)
 
+    sets = find_sets(card_colors, card_shapes, card_shadings, card_counts)
+
+    print('Found %s sets' % len(sets))
+    print(sets)
 
 if __name__ == '__main__':
     main()
